@@ -21,30 +21,12 @@
     "test": {
       "presets": [
         ["@babel/preset-env", {
-          "loose": true,
-          "modules": false,
+          "loose": false,
+          "modules": "commonjs",
           "targets": {
-            "browsers": [
-              "last 2 Chrome versions"
-            ]
+            "node": "current"
           }
         }]
-      ]
-    },
-    "coverage": {
-      "presets": [
-        ["@babel/preset-env", {
-          "loose": true,
-          "modules": false,
-          "targets": {
-            "browsers": [
-              "last 2 Chrome versions"
-            ]
-          }
-        }]
-      ],
-      "plugins": [
-        "babel-plugin-istanbul"
       ]
     }
   }
