@@ -1,56 +1,153 @@
 "use strict";
 
 const path = require("path");
+const os = require("os");
 
 const webpack = require("webpack");
-const HtmlPlugin = require("html-webpack-plugin");
-const CopyPlugin = require("copy-webpack-plugin");
-const HtmlIncludeAssetsPlugin = require("html-webpack-include-assets-plugin");
+const CleanPlugin = require("clean-webpack-plugin");
+const ExtractTextPlugin = require("extract-text-webpack-plugin");
+const CopyWebpackPlugin = require("copy-webpack-plugin");
+const HtmlWebpackPlugin = require("html-webpack-plugin");
+const OptimizeCssAssetsPlugin = require("optimize-css-assets-webpack-plugin");
+const ForkTsCheckerPlugin = require("fork-ts-checker-webpack-plugin");
+const HardSourcePlugin = require("hard-source-webpack-plugin");
+const HtmlWebpackIncludeAssetsPlugin = require("html-webpack-include-assets-plugin");
+
+const devServerPort = 3000;
 
 module.exports = (env, args) => {
   const prod = args.mode === "production";
-  return {
-    context: __dirname,
-    devServer: {
-      hot: true,
-      port: 3000,
+  const extractCSS = new ExtractTextPlugin(`style${prod ? ".[chunkhash]" : ""}.css`);
+  const cssLoaders = [
+    {
+      loader: "css-loader",
+      options: {
+        camelCase: true,
+        importLoaders: 1,
+        localIdentName: "[local]_[hash:base64:5]",
+        minimize: false, // minimized by OptimizeCssAssetsPlugin
+        modules: true,
+        sourceMap: !prod,
+      },
     },
-    devtool: !prod ? void 0 : "eval-source-map",
-    entry: "./src/index.js",
+    "postcss-loader",
+  ];
+
+  return {
+    devServer: {
+      clientLogLevel: "warning",
+      contentBase: path.join(__dirname, "build"),
+      // disableHostCheck: true,
+      historyApiFallback: true,
+      hot: true,
+      port: devServerPort,
+      stats: "minimal",
+    },
+    devtool: prod ? void 0 : "inline-source-map",
+    entry: [
+      ...(prod
+        ? []
+        : [
+            "react-hot-loader/patch",
+            `webpack-dev-server/client?http://0.0.0.0:${devServerPort}`,
+            "webpack/hot/only-dev-server",
+          ]),
+      "./src/index.tsx",
+    ],
     externals: {
       cesium: "Cesium",
     },
-    mode: prod ? "production" : "development",
     module: {
       rules: [
         {
-          test: /\.js$/,
+          test: /\.tsx?$/,
           exclude: /node_modules/,
-          use: "babel-loader",
+          use: [
+            {
+              loader: "thread-loader",
+              options: {
+                workers: Math.max(os.cpus().length - 1),
+              },
+            },
+            ...(prod
+              ? []
+              : [
+                  {
+                    loader: "babel-loader",
+                    options: {
+                      babelrc: false,
+                      cacheDirectory: true,
+                      plugins: ["react-hot-loader/babel"],
+                    },
+                  },
+                ]),
+            {
+              loader: "ts-loader",
+              options: {
+                happyPackMode: true,
+              },
+            },
+          ],
+        },
+        {
+          test: /\.css$/,
+          exclude: /node_modules/,
+          use: prod
+            ? extractCSS.extract({
+                fallback: "style-loader",
+                use: cssLoaders,
+              })
+            : ["style-loader", ...cssLoaders],
         },
       ],
     },
+    optimization: {},
     output: {
+      filename: prod ? "[name].[chunkhash].js" : "[name].js",
       path: path.join(__dirname, "build"),
+      publicPath: "/",
+    },
+    performance: {
+      hints: prod ? "warning" : false,
     },
     plugins: [
-      new webpack.DefinePlugin({
-        CESIUM_BASE_URL: JSON.stringify("/cesium"),
+      ...(prod
+        ? [
+            new CleanPlugin("build"),
+            new OptimizeCssAssetsPlugin({
+              cssProcessorOptions: {
+                autoprefixer: false,
+              },
+            }),
+            extractCSS,
+          ]
+        : [
+            new webpack.HotModuleReplacementPlugin(),
+            new HardSourcePlugin({
+              environmentHash: {
+                root: process.cwd(),
+                directories: [],
+                files: ["package-lock.json", "yarn.lock"],
+              },
+            }),
+          ]),
+      new HtmlWebpackPlugin({
+        template: "src/index.html",
       }),
-      new CopyPlugin([
-        {
-          from: `../node_modules/cesium/Build/Cesium${prod ? "" : "Unminified"}`,
-          to: "cesium",
-        },
-      ]),
-      new HtmlPlugin({
-        template: "index.html",
-      }),
-      new HtmlIncludeAssetsPlugin({
+      new HtmlWebpackIncludeAssetsPlugin({
         append: false,
         assets: ["cesium/Widgets/widgets.css", "cesium/Cesium.js"],
       }),
-      ...(prod ? [] : [new webpack.HotModuleReplacementPlugin()]),
+      new CopyWebpackPlugin([
+        { from: "src/public", ignore: [".gitkeep"] },
+        { from: `node_modules/cesium/Build/Cesium${prod ? "" : "Unminified"}`, to: "cesium" },
+      ]),
+      new ForkTsCheckerPlugin({
+        checkSyntacticErrors: true,
+      }),
     ],
+    resolve: {
+      extensions: [".ts", ".tsx", ".js", ".jsx"],
+    },
   };
 };
