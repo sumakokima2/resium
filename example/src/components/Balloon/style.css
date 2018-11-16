@@ -1,0 +1,31 @@
+.balloon {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 230px;
+  height: 180px;
+  padding: 15px;
+  background-color: rgba(0, 0, 0, 0.5);
+  border-radius: 5px;
+  color: #fff;
+  font-size: 12px;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.dr {
+  display: flex;
+  align-items: stretch;
+  margin-bottom: 5px;
+}
+
+.dt {
+  width: 70px;
+  flex-basis: 70px;
+  color: #ccc;
+}
+
+.dd {
+  flex: auto;
+  text-align: right;
+}
