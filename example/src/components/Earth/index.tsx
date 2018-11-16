@@ -53,7 +53,7 @@ export default class Earth extends React.PureComponent<Props, State> {
       height: 180,
       padding: 15,
       color: 'white',
-    };
+      };
 
     return (
       <Viewer
